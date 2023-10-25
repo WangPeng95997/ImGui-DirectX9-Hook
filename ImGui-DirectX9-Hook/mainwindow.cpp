@@ -3,48 +3,48 @@
 
 GuiWindow::GuiWindow()
 {
-	// 申请内存
+    // 申请内存
     this->lpBuffer = (LPBYTE)::VirtualAlloc(NULL, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     ::memset(this->lpBuffer, 0xCC, 0x1000);
 
-	// 加载中文字体
-	this->fontPath = new char[MAX_PATH] {};
-	::GetEnvironmentVariableA("WINDIR", this->fontPath, MAX_PATH);
-	::strcat_s(this->fontPath, MAX_PATH, "\\Fonts\\msyh.ttc");
+    // 加载中文字体
+    this->fontPath = new char[MAX_PATH] {};
+    ::GetEnvironmentVariableA("WINDIR", this->fontPath, MAX_PATH);
+    ::strcat_s(this->fontPath, MAX_PATH, "\\Fonts\\msyh.ttc");
 
-	// 窗口名称
+    // 窗口名称
     std::string strText;
     strText = strText.append(WINDOWNAME).append(" v") + std::to_string(MAJORVERSION) + std::string().append(".") + std::to_string(MINORVERSION) + std::string().append(".") + std::to_string(REVISIONVERSION);
-	size_t nLength = strText.length() + 1;
+    size_t nLength = strText.length() + 1;
     this->windowName = new char[nLength] {};
-	::memcpy(this->windowName, strText.c_str(), strText.length());
+    ::memcpy(this->windowName, strText.c_str(), strText.length());
 
-	this->startPostion = ImVec2(0.0f, 0.0f);
+    this->startPostion = ImVec2(0.0f, 0.0f);
 
-	this->windowStatus = WindowStatus::Repaint;
+    this->windowStatus = WindowStatus::Repaint;
 
-	// 功能菜单
-	this->showMenu = true;
-	this->crossHair = false;
+    // 功能菜单
+    this->showMenu = true;
+    this->crossHair = false;
 }
 
 GuiWindow::~GuiWindow()
 {
     ::VirtualFree(this->lpBuffer, 0, MEM_RELEASE);
 
-	delete[] this->fontPath;
-	delete[] this->windowName;
+    delete[] this->fontPath;
+    delete[] this->windowName;
 }
 
 void GuiWindow::Init()
 {
-	do
-	{
-		this->mainWindow = FindWindow(TARGETCLASS, TARGETWINDOW);
-		this->hProcess = ::GetCurrentProcess();
+    do
+    {
+        this->mainWindow = FindWindow(TARGETCLASS, TARGETWINDOW);
+        this->hProcess = ::GetCurrentProcess();
         this->hModule = GetModuleHandle(TARGETMODULE);
-		Sleep(200);
-	} while (this->mainWindow == NULL || this->hProcess == NULL || this->hModule == NULL);
+        Sleep(200);
+    } while (this->mainWindow == NULL || this->hProcess == NULL || this->hModule == NULL);
 
     this->baseAddress = (LPBYTE)this->hModule;
 }
@@ -100,13 +100,13 @@ void GuiWindow::Update()
             ImColor(0, 255, 0, 255));
     }
 
-	ImGui::End();
+    ImGui::End();
 }
 
 void GuiWindow::OnRepaint()
 {
-	ImGui::SetWindowPos(this->startPostion);
-	ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
+    ImGui::SetWindowPos(this->startPostion);
+    ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
     this->windowStatus &= ~WindowStatus::Repaint;
 }
 
@@ -117,5 +117,5 @@ void GuiWindow::Button_OnExiting()
 
 void GuiWindow::Toggle_CrossHair(const bool& isEnable)
 {
-	this->crossHair = isEnable;
+    this->crossHair = isEnable;
 }
