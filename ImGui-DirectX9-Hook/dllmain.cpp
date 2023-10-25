@@ -143,8 +143,8 @@ HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    //ImGui::ShowDemoWindow();
-    g_GuiWindow->Update();
+    ImGui::ShowDemoWindow();
+    //g_GuiWindow->Update();
 
     ImGui::EndFrame();
     ImGui::Render();

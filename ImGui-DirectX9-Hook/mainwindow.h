@@ -10,8 +10,8 @@
 
 #define WINDOWNAME          "ImGui Window"
 #define MAJORVERSION        0
-#define MINORVERSION        0
-#define REVISIONVERSION     1
+#define MINORVERSION        1
+#define REVISIONVERSION     0
 
 #define TARGETCLASS         "gfx_test"
 #define TARGETWINDOW        "Renderer: [DirectX9], Input: [Window Messages], 64 bits"
