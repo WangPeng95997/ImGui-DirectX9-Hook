@@ -24,11 +24,9 @@
 
 enum WindowStatus : DWORD
 {
-    Normal      = 0,
-    Repaint     = 1 << 0,
-    Message     = 1 << 1,
-    Exiting     = 1 << 2,
-    End         = 1 << 3
+    Normal = 0,
+    Repaint = 1 << 0,
+    Exit = 1 << 1
 };
 
 class GuiWindow
@@ -36,7 +34,7 @@ class GuiWindow
 public:
     char*       fontPath;
     char*       windowName;
-    HWND        mainWindow;
+    HWND        hwnd;
     HANDLE      hProcess;
     HMODULE     hModule;
     LPBYTE      baseAddress;
@@ -50,9 +48,10 @@ public:
     ~GuiWindow();
 
     void Init();
+    void Repaint();
     void Update();
-    void OnRepaint();
-    void Button_OnExiting();
+
+    void Button_Exit();
     void Toggle_CrossHair(const bool& isEnable);
 };
 

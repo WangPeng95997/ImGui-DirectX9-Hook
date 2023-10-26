@@ -10,10 +10,11 @@ HRESULT WINAPI HK_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS*
 HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9);
 LRESULT WINAPI HK_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-HMODULE g_hHinstance;
 Reset Original_Reset;
 EndScene Original_EndScene;
 WNDPROC Original_WndProc;
+HWND g_mainWindow;
+HMODULE g_hHinstance;
 HANDLE g_hEndEvent;
 DWORD64* g_methodsTable;
 GuiWindow* g_GuiWindow;
@@ -34,23 +35,19 @@ void InitHook()
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-
     DetourAttach(&(LPVOID&)Original_Reset, HK_Reset);
     DetourAttach(&(LPVOID&)Original_EndScene, HK_EndScene);
-
     DetourTransactionCommit();
 }
 
 void ReleaseHook()
 {
-    SetWindowLongPtr(g_GuiWindow->mainWindow, GWLP_WNDPROC, (LONG_PTR)Original_WndProc);
+    SetWindowLongPtr(g_mainWindow, GWLP_WNDPROC, (LONG_PTR)Original_WndProc);
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-
     DetourDetach(&(LPVOID&)Original_Reset, HK_Reset);
     DetourDetach(&(LPVOID&)Original_EndScene, HK_EndScene);
-
     DetourTransactionCommit();
 
     ImGui_ImplDX9_Shutdown();
@@ -85,8 +82,9 @@ inline void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags = ImGuiConfigFlags_NoMouseCursorChange;
     io.Fonts->AddFontFromFileTTF(g_GuiWindow->fontPath, 20.0f, nullptr, io.Fonts->GetGlyphRangesChineseFull());
-    io.WantSaveIniSettings = false;
-    io.ImeWindowHandle = g_GuiWindow->mainWindow;
+    io.IniFilename = nullptr;
+    io.LogFilename = nullptr;
+
     ImGuiStyle& Style = ImGui::GetStyle();
     Style.ButtonTextAlign.y = 0.46f;
     Style.WindowBorderSize = 0.0f;
@@ -116,9 +114,10 @@ inline void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
     Style.Colors[ImGuiCol_FrameBgActive] = ImColor(0, 74, 122, 255).Value;
     Style.Colors[ImGuiCol_TitleBg] = ImColor(0, 74, 122, 255).Value;
     Style.Colors[ImGuiCol_TitleBgActive] = ImColor(0, 74, 122, 255).Value;
-    ImGui_ImplWin32_Init(g_GuiWindow->mainWindow);
+
+    ImGui_ImplWin32_Init(g_mainWindow);
     ImGui_ImplDX9_Init(Direct3Device9);
-    Original_WndProc = (WNDPROC)SetWindowLongPtr(g_GuiWindow->mainWindow, GWLP_WNDPROC, (LONG_PTR)HK_WndProc);
+    Original_WndProc = (WNDPROC)SetWindowLongPtr(g_mainWindow, GWLP_WNDPROC, (LONG_PTR)HK_WndProc);
 
     g_ImGuiInit = true;
 }
@@ -129,11 +128,11 @@ HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
     {
         D3DDEVICE_CREATION_PARAMETERS params;
         Direct3Device9->GetCreationParameters(&params);
-        g_GuiWindow->mainWindow = params.hFocusWindow;
+        g_mainWindow = params.hFocusWindow;
 
         InitImGui(Direct3Device9);
     }
-    else if (g_GuiWindow->windowStatus & WindowStatus::End)
+    else if (g_GuiWindow->windowStatus & WindowStatus::Exit)
     {
         ReleaseHook();
         return Original_EndScene(Direct3Device9);

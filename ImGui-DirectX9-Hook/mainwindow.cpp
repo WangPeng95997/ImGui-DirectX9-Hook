@@ -19,8 +19,8 @@ GuiWindow::GuiWindow()
     this->windowName = new char[nLength] {};
     ::memcpy(this->windowName, strText.c_str(), strText.length());
 
+    // 窗口设置
     this->startPostion = ImVec2(0.0f, 0.0f);
-
     this->windowStatus = WindowStatus::Repaint;
 
     // 功能菜单
@@ -40,13 +40,20 @@ void GuiWindow::Init()
 {
     do
     {
-        this->mainWindow = FindWindow(TARGETCLASS, TARGETWINDOW);
+        this->hwnd = FindWindow(TARGETCLASS, TARGETWINDOW);
         this->hProcess = ::GetCurrentProcess();
         this->hModule = GetModuleHandle(TARGETMODULE);
         Sleep(200);
-    } while (this->mainWindow == NULL || this->hProcess == NULL || this->hModule == NULL);
+    } while (this->hwnd == NULL || this->hProcess == NULL || this->hModule == NULL);
 
     this->baseAddress = (LPBYTE)this->hModule;
+}
+
+void GuiWindow::Repaint()
+{
+    ImGui::SetWindowPos(this->startPostion);
+    ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
+    this->windowStatus &= ~WindowStatus::Repaint;
 }
 
 void GuiWindow::Update()
@@ -66,10 +73,10 @@ void GuiWindow::Update()
         ImGui::Text(this->windowName);
 
         if (this->windowStatus & WindowStatus::Repaint)
-            OnRepaint();
+            Repaint();
 
         if (ImGui::CloseButton(0x1000, ImVec2(windowPostion.x + WIDTH - 20.0f, windowPostion.y)))
-            Button_OnExiting();
+            Button_Exit();
 
         if (ImGui::Checkbox(u8"绘制准星", &this->crossHair))
             Toggle_CrossHair(this->crossHair);
@@ -103,16 +110,9 @@ void GuiWindow::Update()
     ImGui::End();
 }
 
-void GuiWindow::OnRepaint()
+void GuiWindow::Button_Exit()
 {
-    ImGui::SetWindowPos(this->startPostion);
-    ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
-    this->windowStatus &= ~WindowStatus::Repaint;
-}
-
-void GuiWindow::Button_OnExiting()
-{
-    this->windowStatus |= WindowStatus::End;
+    this->windowStatus |= WindowStatus::Exit;
 }
 
 void GuiWindow::Toggle_CrossHair(const bool& isEnable)
