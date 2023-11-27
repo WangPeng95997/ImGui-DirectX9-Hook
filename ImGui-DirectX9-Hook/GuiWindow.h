@@ -2,9 +2,9 @@
 #include <Windows.h>
 #include <string>
 #include "ImGui/imgui.h"
-#include "ImGui/imgui_internal.h"
 #include "Imgui/imgui_impl_dx9.h"
 #include "Imgui/imgui_impl_win32.h"
+#include "Imgui/imgui_internal.h"
 
 #define AUTHORINFO          "Build.20xx.xx.xx\nby l4kkS41"
 
@@ -13,46 +13,51 @@
 #define MINORVERSION        1
 #define REVISIONVERSION     0
 
+#define WIDTH               400
+#define HEIGHT              300
+
+#if defined _M_IX86
+#define TARGETCLASS         "gfx_test"
+#define TARGETWINDOW        "Renderer: [DirectX9], Input: [Window Messages], 32 bits"
+#define TARGETMODULE        "GFXTest32.exe"
+#elif defined _M_X64
 #define TARGETCLASS         "gfx_test"
 #define TARGETWINDOW        "Renderer: [DirectX9], Input: [Window Messages], 64 bits"
 #define TARGETMODULE        "GFXTest64.exe"
-
-#define WIDTH               600
-#define HEIGHT              400
-
-#define VK_M                0x4D
-
-enum WindowStatus : DWORD
-{
-    Normal = 0,
-    Repaint = 1 << 0,
-    Exit = 1 << 1
-};
+#endif
 
 class GuiWindow
 {
 public:
-    char*       fontPath;
-    char*       windowName;
-    HWND        hwnd;
+    enum GuiStatus : DWORD
+    {
+        Normal = 0,
+        Reset = 1 << 0,
+        Exiting = 1 << 1,
+        Finished = 1 << 2
+    };
+
+public:
     HANDLE      hProcess;
     HMODULE     hModule;
-    LPBYTE      baseAddress;
+    HWND        Hwnd;
+    PCHAR       FontPath;
+    PCHAR       Name;
+    LPBYTE      ModuleAddress;
     LPBYTE      lpBuffer;
-    DWORD       windowStatus;
-    ImVec2      startPostion;
-    bool        crossHair;
-    bool        showMenu;
+    ImVec2      StartPostion;
+    DWORD       UIStatus;
+    bool        bCrossHair;
+    bool        bShowMenu;
 
     GuiWindow();
     ~GuiWindow();
 
     void Init();
+    void Release();
     void Repaint();
     void Update();
 
-    void Button_Exit();
+    void OnExiting();
     void Toggle_CrossHair(const bool& isEnable);
 };
-
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);

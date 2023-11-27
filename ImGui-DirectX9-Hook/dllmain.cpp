@@ -1,9 +1,9 @@
 #include <d3d9.h>
-#include "mainwindow.h"
-#include "detours.h"
-#pragma comment(lib, "d3d9.lib")
-#pragma comment(lib, "detours.lib")
+#include "GuiWindow.h"
+#include "MinHook.h"
+#pragma comment (lib, "d3d9.lib")
 
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 typedef HRESULT(WINAPI* Reset)(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
 typedef HRESULT(WINAPI* EndScene)(LPDIRECT3DDEVICE9 Direct3Device9);
 HRESULT WINAPI HK_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
@@ -13,7 +13,6 @@ LRESULT WINAPI HK_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 Reset Original_Reset;
 EndScene Original_EndScene;
 WNDPROC Original_WndProc;
-HWND g_mainWindow;
 HMODULE g_hHinstance;
 HANDLE g_hEndEvent;
 DWORD64* g_methodsTable;
@@ -23,32 +22,33 @@ bool g_ImGuiInit = false;
 void InitHook()
 {
 #if defined _M_IX86
-    DWORD* DVTable = (DWORD*)g_methodsTable;
-    DVTable = (DWORD*)DVTable[0];
+    DWORD* dVtable = (DWORD*)g_methodsTable;
+    dVtable = (DWORD*)dVtable[0];
 #elif defined _M_X64
-    DWORD64* DVTable = (DWORD64*)g_methodsTable;
-    DVTable = (DWORD64*)DVTable[0];
+    DWORD64* dVtable = (DWORD64*)g_methodsTable;
+    dVtable = (DWORD64*)dVtable[0];
 #endif
+    Original_Reset = (Reset)dVtable[16];
+    Original_EndScene = (EndScene)dVtable[42];
+    Original_WndProc = (WNDPROC)SetWindowLongPtr(g_GuiWindow->Hwnd, GWLP_WNDPROC, (LONG_PTR)HK_WndProc);
 
-    Original_Reset = (Reset)DVTable[16];
-    Original_EndScene = (EndScene)DVTable[42];
+    MH_Initialize();
 
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
-    DetourAttach(&(LPVOID&)Original_Reset, HK_Reset);
-    DetourAttach(&(LPVOID&)Original_EndScene, HK_EndScene);
-    DetourTransactionCommit();
+    // Reset
+    void* pTarget = (void*)dVtable[16];
+    MH_CreateHook(pTarget, &HK_Reset, (void**)&Original_Reset);
+    MH_EnableHook(pTarget);
+
+    // EndScene
+    pTarget = (void*)dVtable[42];
+    MH_CreateHook(pTarget, &HK_EndScene, (void**)&Original_EndScene);
+    MH_EnableHook(pTarget);
 }
 
 void ReleaseHook()
 {
-    SetWindowLongPtr(g_mainWindow, GWLP_WNDPROC, (LONG_PTR)Original_WndProc);
-
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
-    DetourDetach(&(LPVOID&)Original_Reset, HK_Reset);
-    DetourDetach(&(LPVOID&)Original_EndScene, HK_EndScene);
-    DetourTransactionCommit();
+    SetWindowLongPtr(g_GuiWindow->Hwnd, GWLP_WNDPROC, (LONG_PTR)Original_WndProc);
+    MH_DisableHook(MH_ALL_HOOKS);
 
     ImGui_ImplDX9_Shutdown();
     ImGui_ImplWin32_Shutdown();
@@ -61,8 +61,8 @@ LRESULT WINAPI HK_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
     case WM_KEYDOWN:
-        if (wParam == VK_M)
-            g_GuiWindow->showMenu = !g_GuiWindow->showMenu;
+        if (wParam == VK_INSERT)
+            g_GuiWindow->bShowMenu = !g_GuiWindow->bShowMenu;
         break;
 
     case WM_DESTROY:
@@ -70,7 +70,7 @@ LRESULT WINAPI HK_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    if (g_GuiWindow->showMenu && ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
+    if (g_GuiWindow->bShowMenu && ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
         return true;
 
     return CallWindowProc(Original_WndProc, hwnd, uMsg, wParam, lParam);
@@ -81,58 +81,52 @@ inline void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags = ImGuiConfigFlags_NoMouseCursorChange;
-    io.Fonts->AddFontFromFileTTF(g_GuiWindow->fontPath, 20.0f, nullptr, io.Fonts->GetGlyphRangesChineseFull());
+    io.Fonts->AddFontFromFileTTF(g_GuiWindow->FontPath, 20.0f, nullptr, io.Fonts->GetGlyphRangesChineseFull());
     io.IniFilename = nullptr;
     io.LogFilename = nullptr;
 
-    ImGuiStyle& Style = ImGui::GetStyle();
-    Style.ButtonTextAlign.y = 0.46f;
-    Style.WindowBorderSize = 0.0f;
-    Style.WindowRounding = 0.0f;
-    Style.WindowPadding.x = 0.0f;
-    Style.WindowPadding.y = 0.0f;
-    Style.FrameRounding = 0.0f;
-    Style.FrameBorderSize = 0.0f;
-    Style.FramePadding.x = 0.0f;
-    Style.FramePadding.y = 0.0f;
-    Style.ChildRounding = 0.0f;
-    Style.ChildBorderSize = 0.0f;
-    Style.GrabRounding = 0.0f;
-    Style.GrabMinSize = 8.0f;
-    Style.PopupBorderSize = 0.0f;
-    Style.PopupRounding = 0.0f;
-    Style.ScrollbarRounding = 0.0f;
-    Style.TabBorderSize = 0.0f;
-    Style.TabRounding = 0.0f;
-    Style.DisplaySafeAreaPadding.x = 0.0f;
-    Style.DisplaySafeAreaPadding.y = 0.0f;
-    Style.Colors[ImGuiCol_WindowBg] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-    Style.Colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-    Style.Colors[ImGuiCol_PopupBg] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-    Style.Colors[ImGuiCol_FrameBg] = ImColor(0, 74, 122, 100).Value;
-    Style.Colors[ImGuiCol_FrameBgHovered] = ImColor(0, 74, 122, 175).Value;
-    Style.Colors[ImGuiCol_FrameBgActive] = ImColor(0, 74, 122, 255).Value;
-    Style.Colors[ImGuiCol_TitleBg] = ImColor(0, 74, 122, 255).Value;
-    Style.Colors[ImGuiCol_TitleBgActive] = ImColor(0, 74, 122, 255).Value;
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.ButtonTextAlign.y = 0.46f;
+    style.WindowBorderSize = 0.0f;
+    style.WindowRounding = 0.0f;
+    style.WindowPadding.x = 0.0f;
+    style.WindowPadding.y = 0.0f;
+    style.FrameRounding = 0.0f;
+    style.FrameBorderSize = 0.0f;
+    style.FramePadding.x = 0.0f;
+    style.FramePadding.y = 0.0f;
+    style.ChildRounding = 0.0f;
+    style.ChildBorderSize = 0.0f;
+    style.GrabRounding = 0.0f;
+    style.GrabMinSize = 8.0f;
+    style.PopupBorderSize = 0.0f;
+    style.PopupRounding = 0.0f;
+    style.ScrollbarRounding = 0.0f;
+    style.TabBorderSize = 0.0f;
+    style.TabRounding = 0.0f;
+    style.DisplaySafeAreaPadding.x = 0.0f;
+    style.DisplaySafeAreaPadding.y = 0.0f;
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_PopupBg] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_FrameBg] = ImColor(0, 74, 122, 100).Value;
+    style.Colors[ImGuiCol_FrameBgHovered] = ImColor(0, 74, 122, 175).Value;
+    style.Colors[ImGuiCol_FrameBgActive] = ImColor(0, 74, 122, 255).Value;
+    style.Colors[ImGuiCol_TitleBg] = ImColor(0, 74, 122, 255).Value;
+    style.Colors[ImGuiCol_TitleBgActive] = ImColor(0, 74, 122, 255).Value;
 
-    ImGui_ImplWin32_Init(g_mainWindow);
+    ImGui_ImplWin32_Init(g_GuiWindow->Hwnd);
     ImGui_ImplDX9_Init(Direct3Device9);
-    Original_WndProc = (WNDPROC)SetWindowLongPtr(g_mainWindow, GWLP_WNDPROC, (LONG_PTR)HK_WndProc);
-
-    g_ImGuiInit = true;
 }
 
 HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
 {
     if (!g_ImGuiInit)
     {
-        D3DDEVICE_CREATION_PARAMETERS params;
-        Direct3Device9->GetCreationParameters(&params);
-        g_mainWindow = params.hFocusWindow;
-
         InitImGui(Direct3Device9);
+        g_ImGuiInit = true;
     }
-    else if (g_GuiWindow->windowStatus & WindowStatus::Exit)
+    else if (g_GuiWindow->UIStatus & GuiWindow::GuiStatus::Finished)
     {
         ReleaseHook();
         return Original_EndScene(Direct3Device9);
@@ -155,23 +149,20 @@ HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
 HRESULT WINAPI HK_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters)
 {
     ImGui_ImplDX9_InvalidateDeviceObjects();
-
     HRESULT hResult = Original_Reset(Direct3Device9, pPresentationParameters);
-
     ImGui_ImplDX9_CreateDeviceObjects();
 
     return hResult;
 }
-
 
 DWORD WINAPI Start(LPVOID lpParameter)
 {
     g_hHinstance = (HMODULE)lpParameter;
     g_hEndEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     g_GuiWindow = new GuiWindow();
-    //g_GuiWindow->Init();
+    g_GuiWindow->Init();
 
-    WNDCLASSEX windowClass;
+    WNDCLASSEX windowClass{};
     windowClass.cbSize = sizeof(WNDCLASSEX);
     windowClass.style = CS_HREDRAW | CS_VREDRAW;
     windowClass.lpfnWndProc = DefWindowProc;
@@ -186,11 +177,22 @@ DWORD WINAPI Start(LPVOID lpParameter)
     windowClass.hIconSm = NULL;
 
     ::RegisterClassEx(&windowClass);
-    HWND hwnd = ::CreateWindow(windowClass.lpszClassName, "DirectX9Window", WS_OVERLAPPEDWINDOW, 0, 0, 100, 100, NULL, NULL, windowClass.hInstance, NULL);
+    HWND hwnd = ::CreateWindow(
+        windowClass.lpszClassName,
+        "DirectX9Window",
+        WS_OVERLAPPEDWINDOW,
+        0,
+        0,
+        100,
+        100,
+        NULL,
+        NULL,
+        windowClass.hInstance,
+        NULL);
 
     LPDIRECT3D9 direct3D9 = Direct3DCreate9(D3D_SDK_VERSION);
     if (!direct3D9)
-        return 0xF;
+        return -1;
 
     D3DPRESENT_PARAMETERS params{};
     params.AutoDepthStencilFormat = D3DFMT_UNKNOWN;
@@ -209,7 +211,7 @@ DWORD WINAPI Start(LPVOID lpParameter)
     params.Windowed = 1;
 
     LPDIRECT3DDEVICE9 direct3Device9;
-    if (!direct3D9->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &direct3Device9))
+    if (SUCCEEDED(direct3D9->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &direct3Device9)))
     {
         g_methodsTable = (DWORD64*)direct3Device9;
 
@@ -221,7 +223,8 @@ DWORD WINAPI Start(LPVOID lpParameter)
     ::DestroyWindow(hwnd);
     ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
 
-    ::WaitForSingleObject(g_hEndEvent, INFINITE);
+    if (g_hEndEvent)
+        ::WaitForSingleObject(g_hEndEvent, INFINITE);
     ::FreeLibraryAndExitThread(g_hHinstance, 0);
 
     return 0;
