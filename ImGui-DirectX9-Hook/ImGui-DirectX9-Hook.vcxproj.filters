@@ -36,9 +36,6 @@
     <ClCompile Include="GuiWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Utils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ImGui\imgui.cpp">
       <Filter>Header Files\ImGui</Filter>
     </ClCompile>
@@ -78,9 +75,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GuiWindow.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ImGui\imconfig.h">

@@ -1,5 +1,4 @@
 #include "GuiWindow.h"
-#include "utils.h"
 
 GuiWindow::GuiWindow()
 {
@@ -30,7 +29,8 @@ GuiWindow::GuiWindow()
 
 GuiWindow::~GuiWindow()
 {
-    ::VirtualFree(this->lpBuffer, 0, MEM_RELEASE);
+    if (this->lpBuffer)
+        ::VirtualFree(this->lpBuffer, 0, MEM_RELEASE);
 
     delete[] this->FontPath;
     delete[] this->Name;
@@ -51,16 +51,7 @@ void GuiWindow::Init()
 
 void GuiWindow::Release()
 {
-    if (this->lpBuffer)
-        ::VirtualFree(this->lpBuffer, 0, MEM_RELEASE);
-    this->lpBuffer = nullptr;
-}
 
-void GuiWindow::Repaint()
-{
-    ImGui::SetWindowPos(this->StartPostion);
-    ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
-    this->UIStatus &= ~GuiStatus::Reset;
 }
 
 void GuiWindow::Update()
@@ -75,12 +66,12 @@ void GuiWindow::Update()
             ImGuiWindowFlags_NoSavedSettings;
         ImGui::Begin(this->Name, nullptr, windowflags);
         if (this->UIStatus & GuiStatus::Reset)
-            Repaint();
+            ResetWindow();
         
         ImVec2 windowPostion = ImGui::GetWindowPos();
         ImGui::Text(this->Name);
         if (ImGui::CloseButton(0x1000, ImVec2(windowPostion.x + WIDTH - 20.0f, windowPostion.y)))
-            this->UIStatus |= GuiStatus::Exiting;
+            this->UIStatus |= GuiStatus::Exit;
 
         if (ImGui::Checkbox(u8"绘制准星", &this->bCrossHair))
             Toggle_CrossHair(this->bCrossHair);
@@ -95,8 +86,8 @@ void GuiWindow::Update()
         ImGui::SetCursorPos(ImVec2(WIDTH - textSize.x, HEIGHT - textSize.y));
         ImGui::Text(hotKey.c_str());
 
-        if (this->UIStatus & GuiStatus::Exiting)
-            this->OnExiting();
+        if (this->UIStatus & GuiStatus::Exit)
+            this->Button_Exit();
 
         ImGui::End();
     }
@@ -117,7 +108,7 @@ void GuiWindow::Update()
     }
 }
 
-void GuiWindow::OnExiting()
+void GuiWindow::Button_Exit()
 {
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
@@ -135,16 +126,23 @@ void GuiWindow::OnExiting()
     if (ImGui::Button(u8"确认", ImVec2(100.0f, 50.0f)))
     {
         this->Release();
-        this->UIStatus |= GuiStatus::Finished;
+        this->UIStatus |= GuiStatus::Detach;
     }
 
     ImGui::SetCursorPos(ImVec2(WIDTH * 0.5f + 20, HEIGHT * 0.618f));
     if (ImGui::Button(u8"取消", ImVec2(100.0f, 50.0f)))
-        this->UIStatus &= ~GuiStatus::Exiting;
+        this->UIStatus &= ~GuiStatus::Exit;
 
     ImGui::EndChild();
     ImGui::EndChildFrame();
     ImGui::PopStyleColor(2);
+}
+
+void GuiWindow::ResetWindow()
+{
+    ImGui::SetWindowPos(this->StartPostion);
+    ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
+    this->UIStatus &= ~GuiStatus::Reset;
 }
 
 void GuiWindow::Toggle_CrossHair(const bool& isEnable)

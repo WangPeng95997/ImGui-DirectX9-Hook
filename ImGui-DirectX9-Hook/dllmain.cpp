@@ -1,47 +1,46 @@
 #include <d3d9.h>
 #include "GuiWindow.h"
-#include "MinHook.h"
+#include "MinHook/include/MinHook.h"
 #pragma comment (lib, "d3d9.lib")
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 typedef HRESULT(WINAPI* Reset)(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
 typedef HRESULT(WINAPI* EndScene)(LPDIRECT3DDEVICE9 Direct3Device9);
-HRESULT WINAPI HK_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
-HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9);
-LRESULT WINAPI HK_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
+HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 Direct3Device9);
+LRESULT WINAPI Hook_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 Reset Original_Reset;
 EndScene Original_EndScene;
 WNDPROC Original_WndProc;
 HMODULE g_hHinstance;
 HANDLE g_hEndEvent;
-DWORD64* g_methodsTable;
+LPVOID g_methodsTable;
 GuiWindow* g_GuiWindow;
-bool g_ImGuiInit = false;
 
 void InitHook()
 {
 #if defined _M_IX86
-    DWORD* dVtable = (DWORD*)g_methodsTable;
-    dVtable = (DWORD*)dVtable[0];
+    DWORD* VirtualTable = (DWORD*)g_methodsTable;
+    VirtualTable = (DWORD*)VirtualTable[0];
 #elif defined _M_X64
-    DWORD64* dVtable = (DWORD64*)g_methodsTable;
-    dVtable = (DWORD64*)dVtable[0];
+    DWORD64* VirtualTable = (DWORD64*)g_methodsTable;
+    VirtualTable = (DWORD64*)VirtualTable[0];
 #endif
-    Original_Reset = (Reset)dVtable[16];
-    Original_EndScene = (EndScene)dVtable[42];
-    Original_WndProc = (WNDPROC)SetWindowLongPtr(g_GuiWindow->Hwnd, GWLP_WNDPROC, (LONG_PTR)HK_WndProc);
+    Original_Reset = (Reset)VirtualTable[16];
+    Original_EndScene = (EndScene)VirtualTable[42];
+    Original_WndProc = (WNDPROC)::SetWindowLongPtr(g_GuiWindow->Hwnd, GWLP_WNDPROC, (LONG_PTR)Hook_WndProc);
 
     MH_Initialize();
 
     // Reset
-    void* pTarget = (void*)dVtable[16];
-    MH_CreateHook(pTarget, &HK_Reset, (void**)&Original_Reset);
+    void* pTarget = (void*)VirtualTable[16];
+    MH_CreateHook(pTarget, &Hook_Reset, (void**)&Original_Reset);
     MH_EnableHook(pTarget);
 
     // EndScene
-    pTarget = (void*)dVtable[42];
-    MH_CreateHook(pTarget, &HK_EndScene, (void**)&Original_EndScene);
+    pTarget = (void*)VirtualTable[42];
+    MH_CreateHook(pTarget, &Hook_EndScene, (void**)&Original_EndScene);
     MH_EnableHook(pTarget);
 }
 
@@ -53,10 +52,10 @@ void ReleaseHook()
     ImGui_ImplDX9_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
-    SetEvent(g_hEndEvent);
+    ::SetEvent(g_hEndEvent);
 }
 
-LRESULT WINAPI HK_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT WINAPI Hook_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -76,7 +75,7 @@ LRESULT WINAPI HK_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return CallWindowProc(Original_WndProc, hwnd, uMsg, wParam, lParam);
 }
 
-inline void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
+inline static void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
 {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -119,14 +118,16 @@ inline void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
     ImGui_ImplDX9_Init(Direct3Device9);
 }
 
-HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
+HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
 {
-    if (!g_ImGuiInit)
+    static bool g_bImGuiInit = false;
+
+    if (!g_bImGuiInit)
     {
         InitImGui(Direct3Device9);
-        g_ImGuiInit = true;
+        g_bImGuiInit = true;
     }
-    else if (g_GuiWindow->UIStatus & GuiWindow::GuiStatus::Finished)
+    else if (g_GuiWindow->UIStatus & GuiWindow::Detach)
     {
         ReleaseHook();
         return Original_EndScene(Direct3Device9);
@@ -146,7 +147,7 @@ HRESULT WINAPI HK_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
     return Original_EndScene(Direct3Device9);
 }
 
-HRESULT WINAPI HK_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters)
+HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters)
 {
     ImGui_ImplDX9_InvalidateDeviceObjects();
     HRESULT hResult = Original_Reset(Direct3Device9, pPresentationParameters);
@@ -190,7 +191,7 @@ DWORD WINAPI Start(LPVOID lpParameter)
         windowClass.hInstance,
         NULL);
 
-    LPDIRECT3D9 direct3D9 = Direct3DCreate9(D3D_SDK_VERSION);
+    LPDIRECT3D9 direct3D9 = ::Direct3DCreate9(D3D_SDK_VERSION);
     if (!direct3D9)
         return -1;
 
@@ -213,7 +214,7 @@ DWORD WINAPI Start(LPVOID lpParameter)
     LPDIRECT3DDEVICE9 direct3Device9;
     if (SUCCEEDED(direct3D9->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &direct3Device9)))
     {
-        g_methodsTable = (DWORD64*)direct3Device9;
+        g_methodsTable = direct3Device9;
 
         InitHook();
 
@@ -243,7 +244,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         break;
 
     case DLL_PROCESS_DETACH:
-        ReleaseHook();
+        MH_Uninitialize();
         break;
     }
 

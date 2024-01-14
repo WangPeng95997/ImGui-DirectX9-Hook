@@ -13,8 +13,8 @@
 #define MINORVERSION        1
 #define REVISIONVERSION     0
 
-#define WIDTH               400
-#define HEIGHT              300
+#define WIDTH               600
+#define HEIGHT              400
 
 #if defined _M_IX86
 #define TARGETCLASS         "gfx_test"
@@ -33,11 +33,10 @@ public:
     {
         Normal = 0,
         Reset = 1 << 0,
-        Exiting = 1 << 1,
-        Finished = 1 << 2
+        Exit = 1 << 1,
+        Detach = 1 << 2
     };
 
-public:
     HANDLE      hProcess;
     HMODULE     hModule;
     HWND        Hwnd;
@@ -55,9 +54,9 @@ public:
 
     void Init();
     void Release();
-    void Repaint();
+    void ResetWindow();
     void Update();
-
-    void OnExiting();
+    
+    void Button_Exit();
     void Toggle_CrossHair(const bool& isEnable);
 };
