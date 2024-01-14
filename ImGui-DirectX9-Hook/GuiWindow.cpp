@@ -15,8 +15,8 @@ GuiWindow::GuiWindow()
     std::string strText;
     strText = strText.append(WINDOWNAME).append(" v") + std::to_string(MAJORVERSION) + std::string().append(".") + std::to_string(MINORVERSION) + std::string().append(".") + std::to_string(REVISIONVERSION);
     size_t nLength = strText.length() + 1;
-    this->Name = new char[nLength] {};
-    ::memcpy(this->Name, strText.c_str(), strText.length());
+    this->WindowName = new char[nLength] {};
+    ::memcpy(this->WindowName, strText.c_str(), strText.length());
 
     // 窗口设置
     this->StartPostion = ImVec2(0.0f, 0.0f);
@@ -33,7 +33,7 @@ GuiWindow::~GuiWindow()
         ::VirtualFree(this->lpBuffer, 0, MEM_RELEASE);
 
     delete[] this->FontPath;
-    delete[] this->Name;
+    delete[] this->WindowName;
 }
 
 void GuiWindow::Init()
@@ -49,11 +49,6 @@ void GuiWindow::Init()
     this->ModuleAddress = (LPBYTE)this->hModule;
 }
 
-void GuiWindow::Release()
-{
-
-}
-
 void GuiWindow::Update()
 {
     if (this->bShowMenu)
@@ -64,12 +59,12 @@ void GuiWindow::Update()
             ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse |
             ImGuiWindowFlags_NoSavedSettings;
-        ImGui::Begin(this->Name, nullptr, windowflags);
+        ImGui::Begin(this->WindowName, nullptr, windowflags);
         if (this->UIStatus & GuiStatus::Reset)
             ResetWindow();
         
         ImVec2 windowPostion = ImGui::GetWindowPos();
-        ImGui::Text(this->Name);
+        ImGui::Text(this->WindowName);
         if (ImGui::CloseButton(0x1000, ImVec2(windowPostion.x + WIDTH - 20.0f, windowPostion.y)))
             this->UIStatus |= GuiStatus::Exit;
 
@@ -124,10 +119,7 @@ void GuiWindow::Button_Exit()
 
     ImGui::SetCursorPos(ImVec2(WIDTH * 0.5f - 120, HEIGHT * 0.618f));
     if (ImGui::Button(u8"确认", ImVec2(100.0f, 50.0f)))
-    {
-        this->Release();
         this->UIStatus |= GuiStatus::Detach;
-    }
 
     ImGui::SetCursorPos(ImVec2(WIDTH * 0.5f + 20, HEIGHT * 0.618f));
     if (ImGui::Button(u8"取消", ImVec2(100.0f, 50.0f)))

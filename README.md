@@ -8,4 +8,4 @@
 #define TARGETMODULE        "GFXTest32.exe"
 ```
 ## Screenshot
-![Image](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/ScreenShot/Image.png)
+![Image](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/Screenshot/Image.png)

@@ -9,8 +9,8 @@
 #define AUTHORINFO          "Build.20xx.xx.xx\nby l4kkS41"
 
 #define WINDOWNAME          "ImGui Window"
-#define MAJORVERSION        0
-#define MINORVERSION        1
+#define MAJORVERSION        1
+#define MINORVERSION        0
 #define REVISIONVERSION     0
 
 #define WIDTH               600
@@ -41,7 +41,7 @@ public:
     HMODULE     hModule;
     HWND        Hwnd;
     PCHAR       FontPath;
-    PCHAR       Name;
+    PCHAR       WindowName;
     LPBYTE      ModuleAddress;
     LPBYTE      lpBuffer;
     ImVec2      StartPostion;
@@ -53,10 +53,9 @@ public:
     ~GuiWindow();
 
     void Init();
-    void Release();
-    void ResetWindow();
     void Update();
     
     void Button_Exit();
+    void ResetWindow();
     void Toggle_CrossHair(const bool& isEnable);
 };
