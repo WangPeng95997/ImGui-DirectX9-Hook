@@ -217,10 +217,10 @@ DWORD WINAPI Start(LPVOID lpParameter)
     if (SUCCEEDED(lpDirect3D9->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &lpDirect3Device9)))
     {
         g_lpVirtualTable = lpDirect3Device9;
+        InitHook();
+
         lpDirect3Device9->Release();
         lpDirect3D9->Release();
-
-        InitHook();
     }
     ::DestroyWindow(hWnd);
     ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
