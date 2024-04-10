@@ -31,22 +31,21 @@ class GuiWindow
 public:
     enum GuiStatus : DWORD
     {
-        Normal = 0,
         Reset = 1 << 0,
         Exit = 1 << 1,
         Detach = 1 << 2
     };
 
-    HANDLE      hProcess;
+    HWND        hWnd;
     HMODULE     hModule;
-    HWND        Hwnd;
+    HANDLE      hProcess;
     PCHAR       FontPath;
     PCHAR       WindowName;
     LPBYTE      ModuleAddress;
     LPBYTE      lpBuffer;
     ImVec2      StartPostion;
     DWORD       UIStatus;
-    bool        bCrossHair;
+    bool        bCrosshair;
     bool        bShowMenu;
 
     GuiWindow();
@@ -56,6 +55,6 @@ public:
     void Update();
     
     void Button_Exit();
-    void ResetWindow();
-    void Toggle_CrossHair(const bool& isEnable);
+
+    void Toggle_Crosshair(const bool& isEnable);
 };

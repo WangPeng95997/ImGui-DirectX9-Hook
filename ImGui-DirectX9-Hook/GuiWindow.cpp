@@ -23,8 +23,8 @@ GuiWindow::GuiWindow()
     this->UIStatus = GuiStatus::Reset;
 
     // 功能菜单
+    this->bCrosshair = false;
     this->bShowMenu = true;
-    this->bCrossHair = false;
 }
 
 GuiWindow::~GuiWindow()
@@ -40,11 +40,11 @@ void GuiWindow::Init()
 {
     do
     {
-        this->Hwnd = FindWindow(TARGETCLASS, TARGETWINDOW);
+        this->hWnd = ::FindWindow(TARGETCLASS, TARGETWINDOW);
+        this->hModule = ::GetModuleHandle(TARGETMODULE);
         this->hProcess = ::GetCurrentProcess();
-        this->hModule = GetModuleHandle(TARGETMODULE);
         Sleep(200);
-    } while (this->Hwnd == NULL || this->hProcess == NULL || this->hModule == NULL);
+    } while (this->hWnd == NULL || this->hModule == NULL || this->hProcess == NULL);
 
     this->ModuleAddress = (LPBYTE)this->hModule;
 }
@@ -59,17 +59,21 @@ void GuiWindow::Update()
             ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse |
             ImGuiWindowFlags_NoSavedSettings;
-        ImGui::Begin(this->WindowName, nullptr, windowflags);
+        ImGui::Begin("MainWindow", nullptr, windowflags);
         if (this->UIStatus & GuiStatus::Reset)
-            ResetWindow();
+        {
+            ImGui::SetWindowPos(this->StartPostion);
+            ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
+            this->UIStatus &= ~GuiStatus::Reset;
+        }
         
         ImVec2 windowPostion = ImGui::GetWindowPos();
         ImGui::Text(this->WindowName);
         if (ImGui::CloseButton(0x1000, ImVec2(windowPostion.x + WIDTH - 20.0f, windowPostion.y)))
             this->UIStatus |= GuiStatus::Exit;
 
-        if (ImGui::Checkbox(u8"绘制准星", &this->bCrossHair))
-            Toggle_CrossHair(this->bCrossHair);
+        if (ImGui::Checkbox(u8"绘制准星", &this->bCrosshair))
+            Toggle_Crosshair(this->bCrosshair);
 
         const std::string authorInfo = std::string(AUTHORINFO);
         ImVec2 textSize = ImGui::CalcTextSize(authorInfo.c_str());
@@ -88,7 +92,7 @@ void GuiWindow::Update()
     }
 
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-    if (this->bCrossHair)
+    if (this->bCrosshair)
     {
         ImVec2 displaySize = ImGui::GetIO().DisplaySize;
 
@@ -110,7 +114,7 @@ void GuiWindow::Button_Exit()
     ImGui::SetCursorPos(ImVec2(0, 0));
     ImGui::BeginChildFrame(0x2000, ImVec2(WIDTH, HEIGHT));
     ImGui::SetCursorPos(ImVec2(0, 0));
-    ImGui::BeginChild("Exiting", ImVec2(WIDTH, HEIGHT));
+    ImGui::BeginChild("ExitWindow", ImVec2(WIDTH, HEIGHT));
 
     std::string strText = std::string(u8"是否退出程序？");
     ImVec2 textSize = ImGui::CalcTextSize(strText.c_str());
@@ -130,14 +134,7 @@ void GuiWindow::Button_Exit()
     ImGui::PopStyleColor(2);
 }
 
-void GuiWindow::ResetWindow()
+void GuiWindow::Toggle_Crosshair(const bool& isEnable)
 {
-    ImGui::SetWindowPos(this->StartPostion);
-    ImGui::SetWindowSize(ImVec2(WIDTH, HEIGHT));
-    this->UIStatus &= ~GuiStatus::Reset;
-}
-
-void GuiWindow::Toggle_CrossHair(const bool& isEnable)
-{
-    this->bCrossHair = isEnable;
+    this->bCrosshair = isEnable;
 }

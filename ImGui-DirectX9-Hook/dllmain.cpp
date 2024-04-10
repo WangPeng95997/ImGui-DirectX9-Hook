@@ -13,40 +13,40 @@ LRESULT WINAPI Hook_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 Reset Original_Reset;
 EndScene Original_EndScene;
 WNDPROC Original_WndProc;
-HMODULE g_hHinstance;
+HMODULE g_hInstance;
 HANDLE g_hEndEvent;
-LPVOID g_methodsTable;
+LPVOID g_lpVirtualTable;
 GuiWindow* g_GuiWindow;
 
 void InitHook()
 {
 #if defined _M_IX86
-    DWORD* VirtualTable = (DWORD*)g_methodsTable;
-    VirtualTable = (DWORD*)VirtualTable[0];
+    DWORD* lpVTable = (DWORD*)g_lpVirtualTable;
+    lpVTable = (DWORD*)lpVTable[0];
 #elif defined _M_X64
-    DWORD64* VirtualTable = (DWORD64*)g_methodsTable;
-    VirtualTable = (DWORD64*)VirtualTable[0];
+    DWORD64* lpVTable = (DWORD64*)g_lpVirtualTable;
+    lpVTable = (DWORD64*)lpVTable[0];
 #endif
-    Original_Reset = (Reset)VirtualTable[16];
-    Original_EndScene = (EndScene)VirtualTable[42];
-    Original_WndProc = (WNDPROC)::SetWindowLongPtr(g_GuiWindow->Hwnd, GWLP_WNDPROC, (LONG_PTR)Hook_WndProc);
+    Original_Reset = (Reset)lpVTable[16];
+    Original_EndScene = (EndScene)lpVTable[42];
+    Original_WndProc = (WNDPROC)::SetWindowLongPtr(g_GuiWindow->hWnd, GWLP_WNDPROC, (LONG_PTR)Hook_WndProc);
 
     MH_Initialize();
 
     // Reset
-    void* pTarget = (void*)VirtualTable[16];
-    MH_CreateHook(pTarget, &Hook_Reset, (void**)&Original_Reset);
-    MH_EnableHook(pTarget);
+    LPVOID lpTarget = (LPVOID)lpVTable[16];
+    MH_CreateHook(lpTarget, &Hook_Reset, (void**)&Original_Reset);
+    MH_EnableHook(lpTarget);
 
     // EndScene
-    pTarget = (void*)VirtualTable[42];
-    MH_CreateHook(pTarget, &Hook_EndScene, (void**)&Original_EndScene);
-    MH_EnableHook(pTarget);
+    lpTarget = (LPVOID)lpVTable[42];
+    MH_CreateHook(lpTarget, &Hook_EndScene, (void**)&Original_EndScene);
+    MH_EnableHook(lpTarget);
 }
 
 void ReleaseHook()
 {
-    SetWindowLongPtr(g_GuiWindow->Hwnd, GWLP_WNDPROC, (LONG_PTR)Original_WndProc);
+    ::SetWindowLongPtr(g_GuiWindow->hWnd, GWLP_WNDPROC, (LONG_PTR)Original_WndProc);
     MH_DisableHook(MH_ALL_HOOKS);
 
     ImGui_ImplDX9_Shutdown();
@@ -55,7 +55,7 @@ void ReleaseHook()
     ::SetEvent(g_hEndEvent);
 }
 
-LRESULT WINAPI Hook_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT WINAPI Hook_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -69,13 +69,13 @@ LRESULT WINAPI Hook_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-    if (g_GuiWindow->bShowMenu && ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
+    if (g_GuiWindow->bShowMenu && ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
         return true;
 
-    return CallWindowProc(Original_WndProc, hwnd, uMsg, wParam, lParam);
+    return ::CallWindowProc(Original_WndProc, hWnd, uMsg, wParam, lParam);
 }
 
-inline static void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
+inline static void InitImGui(LPDIRECT3DDEVICE9 lpDirect3Device9)
 {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -114,23 +114,23 @@ inline static void InitImGui(LPDIRECT3DDEVICE9 Direct3Device9)
     style.Colors[ImGuiCol_TitleBg] = ImColor(0, 74, 122, 255).Value;
     style.Colors[ImGuiCol_TitleBgActive] = ImColor(0, 74, 122, 255).Value;
 
-    ImGui_ImplWin32_Init(g_GuiWindow->Hwnd);
-    ImGui_ImplDX9_Init(Direct3Device9);
+    ImGui_ImplWin32_Init(g_GuiWindow->hWnd);
+    ImGui_ImplDX9_Init(lpDirect3Device9);
 }
 
-HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
+HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 lpDirect3Device9)
 {
     static bool g_bImGuiInit = false;
 
     if (!g_bImGuiInit)
     {
-        InitImGui(Direct3Device9);
+        InitImGui(lpDirect3Device9);
         g_bImGuiInit = true;
     }
     else if (g_GuiWindow->UIStatus & GuiWindow::Detach)
     {
         ReleaseHook();
-        return Original_EndScene(Direct3Device9);
+        return Original_EndScene(lpDirect3Device9);
     }
 
     ImGui_ImplDX9_NewFrame();
@@ -144,13 +144,15 @@ HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 Direct3Device9)
     ImGui::Render();
     ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
 
-    return Original_EndScene(Direct3Device9);
+    return Original_EndScene(lpDirect3Device9);
 }
 
-HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters)
+HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 lpDirect3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters)
 {
     ImGui_ImplDX9_InvalidateDeviceObjects();
-    HRESULT hResult = Original_Reset(Direct3Device9, pPresentationParameters);
+
+    HRESULT hResult = Original_Reset(lpDirect3Device9, pPresentationParameters);
+
     ImGui_ImplDX9_CreateDeviceObjects();
 
     return hResult;
@@ -158,18 +160,18 @@ HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETER
 
 DWORD WINAPI Start(LPVOID lpParameter)
 {
-    g_hHinstance = (HMODULE)lpParameter;
-    g_hEndEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    g_hInstance = (HMODULE)lpParameter;
+    g_hEndEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
     g_GuiWindow = new GuiWindow();
     g_GuiWindow->Init();
 
     WNDCLASSEX windowClass{};
     windowClass.cbSize = sizeof(WNDCLASSEX);
     windowClass.style = CS_HREDRAW | CS_VREDRAW;
-    windowClass.lpfnWndProc = DefWindowProc;
+    windowClass.lpfnWndProc = ::DefWindowProc;
     windowClass.cbClsExtra = 0;
     windowClass.cbWndExtra = 0;
-    windowClass.hInstance = GetModuleHandle(NULL);
+    windowClass.hInstance = ::GetModuleHandle(NULL);
     windowClass.hIcon = NULL;
     windowClass.hCursor = NULL;
     windowClass.hbrBackground = NULL;
@@ -178,7 +180,7 @@ DWORD WINAPI Start(LPVOID lpParameter)
     windowClass.hIconSm = NULL;
 
     ::RegisterClassEx(&windowClass);
-    HWND hwnd = ::CreateWindow(
+    HWND hWnd = ::CreateWindow(
         windowClass.lpszClassName,
         "DirectX9Window",
         WS_OVERLAPPEDWINDOW,
@@ -191,8 +193,8 @@ DWORD WINAPI Start(LPVOID lpParameter)
         windowClass.hInstance,
         NULL);
 
-    LPDIRECT3D9 direct3D9 = ::Direct3DCreate9(D3D_SDK_VERSION);
-    if (!direct3D9)
+    LPDIRECT3D9 lpDirect3D9 = ::Direct3DCreate9(D3D_SDK_VERSION);
+    if (!lpDirect3D9)
         return -1;
 
     D3DPRESENT_PARAMETERS params{};
@@ -204,29 +206,28 @@ DWORD WINAPI Start(LPVOID lpParameter)
     params.EnableAutoDepthStencil = 0;
     params.Flags = NULL;
     params.FullScreen_RefreshRateInHz = 0;
-    params.hDeviceWindow = hwnd;
+    params.hDeviceWindow = hWnd;
     params.MultiSampleType = D3DMULTISAMPLE_NONE;
     params.MultiSampleQuality = NULL;
     params.PresentationInterval = 0;
     params.SwapEffect = D3DSWAPEFFECT_DISCARD;
     params.Windowed = 1;
 
-    LPDIRECT3DDEVICE9 direct3Device9;
-    if (SUCCEEDED(direct3D9->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &direct3Device9)))
+    LPDIRECT3DDEVICE9 lpDirect3Device9;
+    if (SUCCEEDED(lpDirect3D9->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &lpDirect3Device9)))
     {
-        g_methodsTable = direct3Device9;
+        g_lpVirtualTable = lpDirect3Device9;
+        lpDirect3Device9->Release();
+        lpDirect3D9->Release();
 
         InitHook();
-
-        direct3Device9->Release();
-        direct3D9->Release();
     }
-    ::DestroyWindow(hwnd);
+    ::DestroyWindow(hWnd);
     ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
 
     if (g_hEndEvent)
         ::WaitForSingleObject(g_hEndEvent, INFINITE);
-    ::FreeLibraryAndExitThread(g_hHinstance, 0);
+    ::FreeLibraryAndExitThread(g_hInstance, 0);
 
     return 0;
 }
