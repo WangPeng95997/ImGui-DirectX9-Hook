@@ -8,7 +8,7 @@ typedef HRESULT(WINAPI* Reset)(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARA
 typedef HRESULT(WINAPI* EndScene)(LPDIRECT3DDEVICE9 Direct3Device9);
 HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
 HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 Direct3Device9);
-LRESULT WINAPI Hook_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT WINAPI Hook_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 Reset Original_Reset;
 EndScene Original_EndScene;
@@ -27,10 +27,6 @@ void InitHook()
     DWORD64* lpVTable = (DWORD64*)g_lpVirtualTable;
     lpVTable = (DWORD64*)lpVTable[0];
 #endif
-    Original_Reset = (Reset)lpVTable[16];
-    Original_EndScene = (EndScene)lpVTable[42];
-    Original_WndProc = (WNDPROC)::SetWindowLongPtr(g_GuiWindow->hWnd, GWLP_WNDPROC, (LONG_PTR)Hook_WndProc);
-
     MH_Initialize();
 
     // Reset
@@ -52,6 +48,7 @@ void ReleaseHook()
     ImGui_ImplDX9_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
+
     ::SetEvent(g_hEndEvent);
 }
 
@@ -116,16 +113,17 @@ inline static void InitImGui(LPDIRECT3DDEVICE9 lpDirect3Device9)
 
     ImGui_ImplWin32_Init(g_GuiWindow->hWnd);
     ImGui_ImplDX9_Init(lpDirect3Device9);
+    Original_WndProc = (WNDPROC)::SetWindowLongPtr(g_GuiWindow->hWnd, GWLP_WNDPROC, (LONG_PTR)Hook_WndProc);
 }
 
 HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 lpDirect3Device9)
 {
-    static bool g_bImGuiInit = false;
+    static bool bImGuiInit = false;
 
-    if (!g_bImGuiInit)
+    if (!bImGuiInit)
     {
         InitImGui(lpDirect3Device9);
-        g_bImGuiInit = true;
+        bImGuiInit = true;
     }
     else if (g_GuiWindow->UIStatus & GuiWindow::Detach)
     {

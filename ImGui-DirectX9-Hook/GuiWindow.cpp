@@ -59,7 +59,7 @@ void GuiWindow::Update()
             ImGuiWindowFlags_NoScrollbar |
             ImGuiWindowFlags_NoScrollWithMouse |
             ImGuiWindowFlags_NoSavedSettings;
-        ImGui::Begin("MainWindow", nullptr, windowflags);
+        ImGui::Begin("ImGuiWindow", nullptr, windowflags);
         if (this->UIStatus & GuiStatus::Reset)
         {
             ImGui::SetWindowPos(this->StartPostion);
