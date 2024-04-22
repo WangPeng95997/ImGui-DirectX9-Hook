@@ -12,7 +12,7 @@ GuiWindow::GuiWindow()
     ::strcat_s(this->FontPath, MAX_PATH, "\\Fonts\\msyh.ttc");
 
     // ´°¿ÚÃû³Æ
-    std::string strText;
+    std::string strText{};
     strText = strText.append(WINDOWNAME).append(" v") + std::to_string(MAJORVERSION) + std::string().append(".") + std::to_string(MINORVERSION) + std::string().append(".") + std::to_string(REVISIONVERSION);
     size_t nLength = strText.length() + 1;
     this->WindowName = new char[nLength] {};
@@ -40,10 +40,10 @@ void GuiWindow::Init()
 {
     do
     {
+        Sleep(1000);
         this->hWnd = ::FindWindow(TARGETCLASS, TARGETWINDOW);
         this->hModule = ::GetModuleHandle(TARGETMODULE);
         this->hProcess = ::GetCurrentProcess();
-        Sleep(200);
     } while (this->hWnd == NULL || this->hModule == NULL || this->hProcess == NULL);
 
     this->ModuleAddress = (LPBYTE)this->hModule;
