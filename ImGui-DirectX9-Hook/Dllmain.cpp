@@ -3,11 +3,11 @@
 #include "MinHook/include/MinHook.h"
 #pragma comment (lib, "d3d9.lib")
 
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-typedef HRESULT(WINAPI* Reset)(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
-typedef HRESULT(WINAPI* EndScene)(LPDIRECT3DDEVICE9 Direct3Device9);
-HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 Direct3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
-HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 Direct3Device9);
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+typedef HRESULT(WINAPI* Reset)(LPDIRECT3DDEVICE9 lpDirect3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
+typedef HRESULT(WINAPI* EndScene)(LPDIRECT3DDEVICE9 lpDirect3Device9);
+HRESULT WINAPI Hook_Reset(LPDIRECT3DDEVICE9 lpDirect3Device9, D3DPRESENT_PARAMETERS* pPresentationParameters);
+HRESULT WINAPI Hook_EndScene(LPDIRECT3DDEVICE9 lpDirect3Device9);
 LRESULT WINAPI Hook_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 Reset Original_Reset;
@@ -20,13 +20,9 @@ GuiWindow* g_GuiWindow;
 
 void InitHook()
 {
-#if defined _M_IX86
-    DWORD* lpVTable = (DWORD*)g_lpVirtualTable;
-    lpVTable = (DWORD*)lpVTable[0];
-#elif defined _M_X64
-    DWORD64* lpVTable = (DWORD64*)g_lpVirtualTable;
-    lpVTable = (DWORD64*)lpVTable[0];
-#endif
+    ULONG_PTR* lpVTable = (ULONG_PTR*)g_lpVirtualTable;
+    lpVTable = (ULONG_PTR*)lpVTable[0];
+
     MH_Initialize();
 
     // Reset
@@ -191,10 +187,6 @@ DWORD WINAPI Start(LPVOID lpParameter)
         windowClass.hInstance,
         NULL);
 
-    LPDIRECT3D9 lpDirect3D9 = ::Direct3DCreate9(D3D_SDK_VERSION);
-    if (!lpDirect3D9)
-        return -1;
-
     D3DPRESENT_PARAMETERS params{};
     params.AutoDepthStencilFormat = D3DFMT_UNKNOWN;
     params.BackBufferWidth = 0;
@@ -211,10 +203,12 @@ DWORD WINAPI Start(LPVOID lpParameter)
     params.SwapEffect = D3DSWAPEFFECT_DISCARD;
     params.Windowed = 1;
 
+    LPDIRECT3D9 lpDirect3D9 = ::Direct3DCreate9(D3D_SDK_VERSION);
     LPDIRECT3DDEVICE9 lpDirect3Device9;
     if (SUCCEEDED(lpDirect3D9->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &lpDirect3Device9)))
     {
         g_lpVirtualTable = lpDirect3Device9;
+
         InitHook();
 
         lpDirect3Device9->Release();
@@ -225,7 +219,7 @@ DWORD WINAPI Start(LPVOID lpParameter)
 
     if (g_hEndEvent)
         ::WaitForSingleObject(g_hEndEvent, INFINITE);
-    ::FreeLibraryAndExitThread(g_hInstance, 0);
+    ::FreeLibraryAndExitThread(g_hInstance, EXIT_SUCCESS);
 
     return 0;
 }
@@ -243,6 +237,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
         break;
 
     case DLL_PROCESS_DETACH:
+        ::Sleep(100);
         MH_Uninitialize();
         break;
     }
