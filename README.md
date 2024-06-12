@@ -1,11 +1,16 @@
 # ImGui-DirectX9-Hook
 
-## How to use
+## Getting Started
+[Dllmain.cpp](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/ImGui-DirectX9-Hook/Dllmain.cpp#L134-L135)
 ```C++
-// GuiWindow.h
-#define TARGETCLASS         "gfx_test"
-#define TARGETWINDOW        "Renderer: [DirectX9], Input: [Window Messages], 32 bits"
-#define TARGETMODULE        "GFXTest32.exe"
+ImGui::ShowDemoWindow();
+//g_GuiWindow->Update();
 ```
 ## Screenshot
 ![Image](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/Screenshot/Image.png)
+
+## Credits
+* ImGui   https://github.com/ocornut/imgui
+* kiero https://github.com/Rebzzel/kiero
+* MinHook https://github.com/TsudaKageyu/minhook
+* UniversalHookX https://github.com/bruhmoment21/UniversalHookX
