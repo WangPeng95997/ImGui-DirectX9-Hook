@@ -1,10 +1,17 @@
 # ImGui-DirectX9-Hook
 
 ## Getting Started
-[Dllmain.cpp](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/ImGui-DirectX9-Hook/Dllmain.cpp#L134-L135)
+[Dllmain.cpp](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/ImGui-DirectX9-Hook/Dllmain.cpp#L175-L176)
 ```C++
 ImGui::ShowDemoWindow();
 //g_GuiWindow->Update();
+```
+[GuiWindow.cpp](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/ImGui-DirectX9-Hook/GuiWindow.cpp#L116-L119)
+```C++
+// Insert your custom ImGui code here
+ImGui::Text("Hello World");
+ImGui::Checkbox("Hello World##0", (bool*)this->lpBuffer);
+ImGui::Button("Hello World##1", ImVec2(100.0f, 20.0f));
 ```
 ## Screenshot
 ![Image](https://github.com/WangPeng95997/ImGui-DirectX9-Hook/blob/master/Screenshot/Image.png)
